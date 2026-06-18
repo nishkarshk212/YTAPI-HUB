@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  TRIAL
+}
+
+enum WebhookEvent {
+  QUOTA_WARNING
+  QUOTA_EXCEEDED
+  KEY_REVOKED
+  SUBSCRIPTION_CHANGED
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  passwordHash  String
+  role          UserRole       @default(USER)
+  emailVerified DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  apiKeys       ApiKey[]
+  subscription  Subscription?
+  webhooks      Webhook[]
+  usageLogs     UsageLog[]
+}
+
+model Plan {
+  id                String         @id @default(cuid())
+  name              String
+  slug              String         @unique
+  description       String?
+  priceMonthly      Int            @default(0)
+  priceYearly       Int            @default(0)
+  requestsPerDay    Int            @default(1000)
+  requestsPerMinute Int            @default(30)
+  maxApiKeys        Int            @default(1)
+  features          String[]
+  isActive          Boolean        @default(true)
+  sortOrder         Int            @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  subscriptions     Subscription[]
+  apiKeys           ApiKey[]
+}
+
+model Subscription {
+  id               String             @id @default(cuid())
+  userId           String             @unique
+  planId           String
+  status           SubscriptionStatus @default(ACTIVE)
+  stripeCustomerId String?
+  stripeSubId      String?
+  currentPeriodEnd DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan             Plan               @relation(fields: [planId], references: [id])
+}
+
+model ApiKey {
+  id          String     @id @default(cuid())
+  userId      String
+  planId      String?
+  name        String
+  keyHash     String     @unique
+  keyPrefix   String
+  isActive    Boolean    @default(true)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan        Plan?      @relation(fields: [planId], references: [id])
+  usageLogs   UsageLog[]
+
+  @@index([keyPrefix])
+  @@index([userId])
+}
+
+model UsageLog {
+  id           String   @id @default(cuid())
+  userId       String
+  apiKeyId     String
+  endpoint     String
+  method       String   @default("GET")
+  statusCode   Int
+  responseTime Int
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey       ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@index([apiKeyId, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+model Webhook {
+  id        String         @id @default(cuid())
+  userId    String
+  url       String
+  secret    String
+  events    WebhookEvent[]
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model SystemStatus {
+  id          String   @id @default(cuid())
+  service     String   @unique
+  status      String   @default("operational")
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model ChangelogEntry {
+  id        String   @id @default(cuid())
+  version   String
+  title     String
+  content   String
+  type      String   @default("feature")
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
