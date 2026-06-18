@@ -1,5 +1,8 @@
 export const APP_NAME = process.env.APP_NAME ?? "YTAPI Hub";
-export const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3000/api/v1";
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  process.env.API_BASE_URL ??
+  "http://localhost:3000/api/v1";
 
 export const API_KEY_PREFIX = "ytapi_";
 

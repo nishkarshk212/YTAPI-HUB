@@ -122,6 +122,8 @@ export async function logApiUsage(
   ]);
 }
 
+import { withCors, handleCorsPreflightRequest } from "./cors";
+
 export function withApiAuth(
   handler: (
     request: Request,
@@ -130,9 +132,14 @@ export function withApiAuth(
   ) => Promise<Response>,
 ) {
   return async (request: Request, segmentData?: { params: Promise<Record<string, string>> }) => {
+    const preflight = handleCorsPreflightRequest(request);
+    if (preflight) return preflight;
+
     const start = Date.now();
     const auth = await authenticateApiRequest(request);
-    if ("error" in auth && auth.error) return auth.error;
+    if ("error" in auth && auth.error) {
+      return withCors(auth.error, request);
+    }
 
     const params = segmentData?.params ? await segmentData.params : undefined;
     const endpoint = new URL(request.url).pathname;
@@ -140,12 +147,12 @@ export function withApiAuth(
     try {
       const response = await handler(request, auth.context!, params);
       await logApiUsage(auth.context!, request, response.status, Date.now() - start, endpoint);
-      return response;
+      return withCors(response, request);
     } catch (err) {
       console.error("API error:", err);
       const response = apiError(ERROR_CODES.INTERNAL);
       await logApiUsage(auth.context!, request, 500, Date.now() - start, endpoint);
-      return response;
+      return withCors(response, request);
     }
   };
 }

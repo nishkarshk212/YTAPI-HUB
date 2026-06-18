@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: ytapi-hub-api
+    runtime: node
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: npm install && npx prisma generate && npx prisma db push && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ytapi-hub-db
+          property: connectionString
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: API_BASE_URL
+        sync: false
+      - key: APP_NAME
+        value: YTAPI Hub
+      - key: CORS_ORIGINS
+        value: "*"
+
+databases:
+  - name: ytapi-hub-db
+    plan: free
+    region: oregon
